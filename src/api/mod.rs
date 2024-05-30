@@ -10,8 +10,23 @@ pub struct User {
     password: String,
 }
 
+#[get("/user/all")]
+pub async fn get_all_users(db_connection: &State<Client>) -> Result<String, String> {
+    let users = db_connection
+        .inner()
+        .database("sample_mflix")
+        .collection::<User>("users")
+        .find(None, None)
+        .await
+        .unwrap();
+
+    println!("Found users: {:?}", users);
+
+    Ok("All users fetched, response issues".to_string())
+}
+
 #[get("/user/get/<name>")]
-pub async fn get_user(name: String, db_connection: &State<Client>) -> Result<String, String> {
+pub async fn get_user(name: String, db_connection: &State<Client>) -> Result<Json<User>, String> {
     let find_options = FindOneOptions::builder().skip(0).build();
 
     let user_result = db_connection
@@ -29,11 +44,11 @@ pub async fn get_user(name: String, db_connection: &State<Client>) -> Result<Str
     match user_result {
         Ok(Some(user)) => {
             println!("User is: {:?}", user);
-            Ok(format!("User found: {:?}", user))
+            Ok(Json(user))
         }
         Ok(None) => {
             println!("No user found with the given criteria.");
-            Ok("No user found".to_string())
+            Err("No user found".to_string())
         }
         Err(e) => {
             eprintln!("Error finding user: {:?}", e);
@@ -43,32 +58,86 @@ pub async fn get_user(name: String, db_connection: &State<Client>) -> Result<Str
 }
 
 #[post("/user/new", data = "<user>")]
-pub async fn get_all_users(
+pub async fn create_user(
     user: Json<User>,
     db_connection: &State<Client>,
-) -> Result<String, String> {
+) -> Result<Json<User>, String> {
     let doc = User {
         name: user.name.to_string(),
         email: user.email.to_string(),
         password: user.password.to_string(),
     };
-    let res = db_connection
+    let _ = db_connection
         .inner()
         .database("sample_mflix")
         .collection::<User>("users")
         .insert_one(doc, None)
         .await;
-    println!("OKKK: {:?}", res);
 
-    Ok("OKK".to_string())
+    let created_user = db_connection
+        .inner()
+        .database("sample_mflix")
+        .collection::<User>("users")
+        .find_one(
+            doc! {
+                "name":user.name.to_string()
+            },
+            None,
+        )
+        .await
+        .unwrap();
+
+    Ok(Json(created_user.unwrap()))
+}
+
+#[put("/user/update/<name>", data = "<user>")]
+pub async fn update_user(
+    name: String,
+    user: Json<User>,
+    db_connection: &State<Client>,
+) -> Result<Json<User>, String> {
+    let filter = doc! {
+       "name" : name.to_string()
+    };
+
+    let update = doc! {
+        "$set" : doc! {
+            "name" : user.name.to_string(),
+            "email" : user.email.to_string(),
+            "password" : user.password.to_string(),
+        }
+    };
+
+    let user = db_connection
+        .inner()
+        .database("sample_mflix")
+        .collection::<User>("users")
+        .find_one_and_update(filter, update, None)
+        .await
+        .unwrap()
+        .unwrap();
+
+    Ok(Json(user))
 }
 
 #[delete("/user/delete/<username>")]
 pub async fn delete_user(
     username: String,
     db_connection: &State<Client>,
-) -> Result<String, String> {
-    let res = db_connection
+) -> Result<Json<User>, String> {
+    let deleted_user = db_connection
+        .inner()
+        .database("sample_mflix")
+        .collection::<User>("users")
+        .find_one(
+            doc! {
+                "name":username.to_string()
+            },
+            None,
+        )
+        .await
+        .unwrap();
+    let _ = db_connection
         .inner()
         .database("sample_mflix")
         .collection::<User>("users")
@@ -79,7 +148,6 @@ pub async fn delete_user(
             None,
         )
         .await;
-    println!("Deleted: {:?}", res);
 
-    Ok("OKK Deleted".to_string())
+    Ok(Json(deleted_user.unwrap()))
 }
