@@ -9,8 +9,13 @@ struct User {
     password: String,
 }
 
-#[get("/user/all")]
-pub async fn get_all_users(db_connection: &State<Client>) -> Result<String, String> {
+#[derive(Debug, Serialize)]
+struct _UserModal {
+    name: String,
+}
+
+#[get("/user/<name>")]
+pub async fn get_user(name: &str, db_connection: &State<Client>) -> Result<String, String> {
     let find_options = FindOneOptions::builder().skip(0).build();
 
     let user_result = db_connection
@@ -19,7 +24,7 @@ pub async fn get_all_users(db_connection: &State<Client>) -> Result<String, Stri
         .collection::<User>("users")
         .find_one(
             doc! {
-                "name": "Sansa Stark"
+                "name": name
             },
             find_options,
         )
