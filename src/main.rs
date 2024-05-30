@@ -3,13 +3,14 @@ extern crate rocket;
 pub mod api;
 mod db;
 
-use api::{get_all_users, register};
-use db::connect;
+use api::get_all_users;
 
 #[launch]
-fn rocket() -> _ {
-    let connection = connect().unwrap();
+async fn rocket() -> _ {
+    let db_connection = db::connect()
+        .await
+        .expect("Error While connecting database");
     rocket::build()
-        .manage(connection)
-        .mount("/", routes![get_all_users, register])
+        .mount("/", routes![get_all_users])
+        .manage(db_connection)
 }
