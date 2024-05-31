@@ -1,30 +1,25 @@
+use crate::modal::{User, UserResponse};
+use mongodb::bson::oid::ObjectId;
 use mongodb::{bson::doc, options::FindOneOptions, Database};
 use rocket::State;
 use rocket::{futures::TryStreamExt, serde::json::Json};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct User {
-    name: String,
-    email: String,
-    password: String,
-}
+use std::str::FromStr;
 
 #[get("/user/get/all")]
-pub async fn get_all_users(db: &State<Database>) -> Result<Json<Vec<User>>, String> {
+pub async fn get_all_users(db: &State<Database>) -> Result<Json<Vec<UserResponse>>, String> {
     let mut users = db
-        .collection::<User>("users")
+        .collection::<UserResponse>("users")
         .find(None, None)
         .await
         .unwrap();
 
     let count = db
-        .collection::<User>("users")
+        .collection::<UserResponse>("users")
         .count_documents(None, None)
         .await
         .unwrap();
 
-    let mut user_list: Vec<User> = vec![];
+    let mut user_list: Vec<UserResponse> = vec![];
 
     for _i in 0..count {
         let user = users.try_next().await.unwrap();
@@ -34,15 +29,15 @@ pub async fn get_all_users(db: &State<Database>) -> Result<Json<Vec<User>>, Stri
     Ok(Json(user_list))
 }
 
-#[get("/user/get/<name>")]
-pub async fn get_user(name: String, db: &State<Database>) -> Result<Json<User>, String> {
+#[get("/user/get/<id>")]
+pub async fn get_user(id: String, db: &State<Database>) -> Result<Json<UserResponse>, String> {
     let find_options = FindOneOptions::builder().skip(0).build();
 
     let user_result = db
-        .collection::<User>("users")
+        .collection::<UserResponse>("users")
         .find_one(
             doc! {
-                "name": name
+                "_id": ObjectId::from_str(&id).unwrap()
             },
             find_options,
         )
@@ -56,16 +51,20 @@ pub async fn get_user(name: String, db: &State<Database>) -> Result<Json<User>, 
 }
 
 #[post("/user/new", data = "<user>")]
-pub async fn create_user(user: Json<User>, db: &State<Database>) -> Result<Json<User>, String> {
-    let doc = User {
-        name: user.name.to_string(),
-        email: user.email.to_string(),
-        password: user.password.to_string(),
-    };
+pub async fn create_user(
+    user: Json<User>,
+    db: &State<Database>,
+) -> Result<Json<UserResponse>, String> {
+    let doc = User::new(
+        user.name.to_string(),
+        user.email.to_string(),
+        user.password.to_string(),
+    );
+
     let _ = db.collection::<User>("users").insert_one(doc, None).await;
 
     let created_user = db
-        .collection::<User>("users")
+        .collection::<UserResponse>("users")
         .find_one(
             doc! {
                 "name":user.name.to_string()
@@ -78,14 +77,14 @@ pub async fn create_user(user: Json<User>, db: &State<Database>) -> Result<Json<
     Ok(Json(created_user.unwrap()))
 }
 
-#[put("/user/update/<name>", data = "<user>")]
+#[put("/user/update/<id>", data = "<user>")]
 pub async fn update_user(
-    name: String,
+    id: String,
     user: Json<User>,
     db: &State<Database>,
-) -> Result<Json<User>, String> {
+) -> Result<Json<UserResponse>, String> {
     let filter = doc! {
-       "name" : name.to_string()
+       "_id" : ObjectId::from_str(&id).unwrap()
     };
 
     let update = doc! {
@@ -97,7 +96,7 @@ pub async fn update_user(
     };
 
     let user = db
-        .collection::<User>("users")
+        .collection::<UserResponse>("users")
         .find_one_and_update(filter, update, None)
         .await
         .unwrap()
@@ -106,23 +105,23 @@ pub async fn update_user(
     Ok(Json(user))
 }
 
-#[delete("/user/delete/<username>")]
-pub async fn delete_user(username: String, db: &State<Database>) -> Result<Json<User>, String> {
+#[delete("/user/delete/<id>")]
+pub async fn delete_user(id: String, db: &State<Database>) -> Result<Json<UserResponse>, String> {
     let deleted_user = db
-        .collection::<User>("users")
+        .collection::<UserResponse>("users")
         .find_one(
             doc! {
-                "name":username.to_string()
+                "id": ObjectId::from_str(&id).unwrap()
             },
             None,
         )
         .await
         .unwrap();
     let _ = db
-        .collection::<User>("users")
+        .collection::<UserResponse>("users")
         .delete_one(
             doc! {
-                "name" : username
+                "id" : ObjectId::from_str(&id).unwrap()
             },
             None,
         )

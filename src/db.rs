@@ -2,10 +2,11 @@ use mongodb::{
     options::{ClientOptions, ServerApi, ServerApiVersion},
     Client,
 };
+use std::env;
 
 pub async fn connect() -> Result<Client, Box<dyn std::error::Error>> {
-    let db_uri = "mongodb+srv://chirag:JvAvSQUnWCt3e1vy@rust0.zcazvt1.mongodb.net/";
-    // let db_uri = "mongodb://127.0.0.1:27017/";
+    let db_uri = env::var("DB_URI").unwrap();
+
     let mut client_options = ClientOptions::parse_async(db_uri).await?;
 
     let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();

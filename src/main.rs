@@ -4,6 +4,7 @@ use dotenv;
 extern crate rocket;
 pub mod api;
 mod db;
+pub mod modal;
 
 use api::{create_user, delete_user, get_all_users, get_user, update_user};
 use rocket::Config;
